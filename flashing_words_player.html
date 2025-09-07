@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Word Flasher</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      overflow: hidden;
+    }
+    #wordDisplay {
+      font-size: 8rem; /* doubled size */
+      text-align: center;
+      height: 240px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .bar {
+      position: absolute;
+      width: 25px; /* thicker bars */
+      height: 100%;
+      background: white;
+      left: 0;
+      top: 0;
+      opacity: 0.8;
+    }
+    textarea {
+      width: 300px;
+      height: 100px;
+      margin-bottom: 1rem;
+    }
+    button, select, input[type=checkbox], input[type=number], input[type=range] {
+      margin: 0.3rem;
+      padding: 10px 15px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #444;
+      color: white;
+    }
+    button:hover {
+      background: #666;
+    }
+    label { font-size: 0.9rem; display: block; margin-top: 0.5rem; }
+    #controls { max-width: 500px; text-align: center; }
+    #sizePreview { margin: 0.5rem 0; font-size: 1.5rem; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <h1>Word Flasher</h1>
+    <p>Type words (separate with commas):</p>
+    <textarea id="wordsInput" placeholder="Example: focus, relax, learn"></textarea><br>
+    <label><input type="checkbox" id="randomize"> Randomize order</label>
+    <label><input type="checkbox" id="rainbow"> Rainbow background mode</label><br>
+
+    <h3>Flash Settings</h3>
+    <label for="flashSpeed">Flash Speed (ms) - background only:</label>
+    <input type="number" id="flashSpeed" value="35" step="0.0001" min="1"><br>
+
+    <label for="wordSpeed">Word Speed (ms) - how long each word stays:</label>
+    <input type="number" id="wordSpeed" value="800" step="0.0001" min="0.0001"><br>
+
+    <label for="duration">Session Duration (seconds):</label>
+    <input type="number" id="duration" value="10" min="1"><br>
+
+    <label for="textSize">Text Size:</label>
+    <input type="range" id="textSize" min="4" max="20" value="8" step="0.1">
+    <div id="sizePreview">Current Size: 8rem</div>
+
+    <button onclick="startFlashing()">Play</button>
+    <button onclick="stopFlashing()">Stop</button>
+  </div>
+
+  <div id="wordDisplay"></div>
+
+  <script>
+    let flashInterval;
+    let wordInterval;
+    let barInterval;
+    let timeout;
+
+    const pureColors = ['red', 'green', 'blue', 'yellow', 'magenta', 'cyan', 'orange', 'pink', 'lime', 'purple'];
+
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function getRandomPureColor() {
+      return pureColors[Math.floor(Math.random() * pureColors.length)];
+    }
+
+    const textSizeSlider = document.getElementById('textSize');
+    const sizePreview = document.getElementById('sizePreview');
+    const wordDisplay = document.getElementById('wordDisplay');
+
+    textSizeSlider.addEventListener('input', () => {
+      const size = textSizeSlider.value;
+      wordDisplay.style.fontSize = size + 'rem';
+      sizePreview.textContent = `Current Size: ${size}rem`;
+    });
+
+    function startFlashing() {
+      let input = document.getElementById('wordsInput').value;
+      let words = input.split(',').map(w => w.trim()).filter(w => w);
+
+      if (words.length === 0) words = ["FOCUS", "LEARN", "CREATE", "THINK", "IMAGINE"];
+
+      const randomize = document.getElementById('randomize').checked;
+      const rainbow = document.getElementById('rainbow').checked;
+      let flashSpeed = parseFloat(document.getElementById('flashSpeed').value);
+      const wordSpeed = parseFloat(document.getElementById('wordSpeed').value);
+      const duration = parseInt(document.getElementById('duration').value) * 1000;
+
+      if (flashSpeed < 1) flashSpeed = 1;
+      if (randomize) words = shuffleArray(words);
+
+      let wordIndex = 0;
+      document.getElementById('controls').style.display = 'none';
+
+      clearInterval(flashInterval);
+      clearInterval(wordInterval);
+      clearInterval(barInterval);
+      clearTimeout(timeout);
+
+      // Cycle words
+      wordInterval = setInterval(() => {
+        wordDisplay.textContent = words[wordIndex];
+        wordIndex = (wordIndex + 1) % words.length;
+      }, wordSpeed);
+
+      // Background flashes
+      let bwToggle = false;
+      flashInterval = setInterval(() => {
+        let bgColor;
+        if (rainbow) {
+          bgColor = getRandomPureColor();
+        } else {
+          bgColor = bwToggle ? 'white' : 'black';
+          bwToggle = !bwToggle;
+        }
+        document.body.style.backgroundColor = bgColor;
+        let textColor = (bgColor === 'white') ? 'black' : 'white';
+        if (rainbow) {
+          textColor = (bgColor === 'yellow' || bgColor === 'lime') ? 'black' : 'white';
+        }
+        wordDisplay.style.color = textColor;
+      }, flashSpeed);
+
+      // Vertical bars (rotated 90°), thicker, same color as text
+      barInterval = setInterval(() => {
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.style.left = Math.random() * window.innerWidth + 'px';
+        bar.style.backgroundColor = wordDisplay.style.color;
+        document.body.appendChild(bar);
+        setTimeout(() => { document.body.removeChild(bar); }, flashSpeed);
+      }, flashSpeed);
+
+      timeout = setTimeout(() => stopFlashing(), duration);
+    }
+
+    function stopFlashing() {
+      clearInterval(flashInterval);
+      clearInterval(wordInterval);
+      clearInterval(barInterval);
+      clearTimeout(timeout);
+      wordDisplay.textContent = '';
+      document.body.style.backgroundColor = 'black';
+      wordDisplay.style.color = 'white';
+      document.getElementById('controls').style.display = 'block';
+    }
+  </script>
+</body>
+</html>
